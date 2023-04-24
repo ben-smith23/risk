@@ -8,6 +8,7 @@ from matplotlib.path import Path
 from queue import PriorityQueue
 import heapq
 import risk.definitions
+import copy
 
 Territory = namedtuple("Territory", ["territory_id", "player_id", "armies"])
 Move = namedtuple(
@@ -300,43 +301,47 @@ class Board(object):
             [int]: a list of territory_ids representing the valid attack path;
             if no path exists, then it returns None instead
         """
-        territories = {territory_id: [] for territory_id in range(42)}
-        territories[source] = [source]
-        queue = [(0, source)]
-        visited = set()
+        territories = {source: [source]}
 
-        while queue:
-            # Dequeue current_territory from the PRIORITY queue
-            priority, current_territory = heapq.heappop(queue)
-            
+        pq = []
+
+        heapq.heappush(pq, (0, source))
+
+        visited = set()
+        visited.add(source)
+
+        while pq:
+            # Dequeue current_territory from the priority queue
+            priority, current_territory = heapq.heappop(pq)
+
             if current_territory == target:
                 # Found the target
                 return territories[current_territory]
 
-            if current_territory not in visited:
-                visited.add(current_territory)
+            # Check neighbors
+            for neighbor_territory in self.neighbors(current_territory):
+                if neighbor_territory not in visited:
+                    # Calculate priority and update dictionary
+                    new_dict = territories[current_territory].copy()
+                    new_dict.append(neighbor_territory)
+                    armies = self.data[0].armies
+                    priority = len(new_dict) + armies
 
-                # Check neighbors
-                for neighbor_territory in self.neighbors(current_territory):
-                    if neighbor_territory not in visited:
-                        # Calculate priority and update dictionary
-                        armies = self.data[neighbor_territory].armies
-                        priority = len(territories[current_territory]) + armies
-                        path = territories[current_territory] + [neighbor_territory]
-                        
-                        if neighbor_territory not in [t[1] for t in queue]:
-                            # Enqueue with new priority
-                            heapq.heappush(queue, (priority, neighbor_territory))
-                            territories[neighbor_territory] = path
-                        else:
-                            # Update priority in queue and dictionary
-                            idx = [t[1] for t in queue].index(neighbor_territory)
-                            old_priority, _ = queue[idx]
-                            if priority < old_priority:
-                                queue[idx] = (priority, neighbor_territory)
-                                territories[neighbor_territory] = path
+                    if neighbor_territory not in [t[1] for t in pq]:
+                        # Enqueue with new priority
+                        heapq.heappush(pq, (priority, neighbor_territory))
+                        territories[neighbor_territory] = new_dict
+                    else:
+                        # Update priority in queue and dictionary
+                        idx = [t[1] for t in pq].index(neighbor_territory)
+                        old_priority, _ = pq[idx]
+                        if priority < old_priority:
+                            pq[idx] = (priority, neighbor_territory)
+                            territories[neighbor_territory] = new_dict
 
-        # Target not reachable
+            # Add current_territory to the visited set
+            visited.add(current_territory)
+
         return None
 
     def can_attack(self, source, target):
