@@ -2,7 +2,7 @@
 
 [![](https://github.com/ben-smith23/risk/workflows/tests/badge.svg)](https://github.com/ben-smith23/risk/actions?query=workflow%3Atests)
 
-You will implement several graph algorithms to develop a tool for the game of Risk.
+You will implement several graph algorithms to develop a tool for the game of Risk. 
 
 **Learning Objectives:**
 
