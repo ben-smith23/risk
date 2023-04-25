@@ -5,10 +5,10 @@ from collections import namedtuple
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.path import Path
-from queue import PriorityQueue
-import heapq
-import risk.definitions
+import heapdict
 import copy
+
+import risk.definitions
 
 Territory = namedtuple("Territory", ["territory_id", "player_id", "armies"])
 Move = namedtuple(
@@ -301,46 +301,39 @@ class Board(object):
             [int]: a list of territory_ids representing the valid attack path;
             if no path exists, then it returns None instead
         """
-        territories = {source: [source]}
-
-        pq = []
-
-        heapq.heappush(pq, (0, source))
-
+        if source == target:
+            return None
+        dictionary = {}
+        dictionary[source] = [source]
+        pq = heapdict.heapdict()
+        pq[source] = 0
         visited = set()
-        visited.add(source)
 
         while pq:
-            # Dequeue current_territory from the priority queue
-            priority, current_territory = heapq.heappop(pq)
+            current_territory, priority = pq.popitem()
 
             if current_territory == target:
-                # Found the target
-                return territories[current_territory]
-
-            # Check neighbors
-            for neighbor_territory in self.neighbors(current_territory):
-                if neighbor_territory not in visited:
-                    # Calculate priority and update dictionary
-                    new_dict = territories[current_territory].copy()
-                    new_dict.append(neighbor_territory)
-                    armies = self.data[0].armies
-                    priority = len(new_dict) + armies
-
-                    if neighbor_territory not in [t[1] for t in pq]:
-                        # Enqueue with new priority
-                        heapq.heappush(pq, (priority, neighbor_territory))
-                        territories[neighbor_territory] = new_dict
-                    else:
-                        # Update priority in queue and dictionary
-                        idx = [t[1] for t in pq].index(neighbor_territory)
-                        old_priority, _ = pq[idx]
-                        if priority < old_priority:
-                            pq[idx] = (priority, neighbor_territory)
-                            territories[neighbor_territory] = new_dict
-
-            # Add current_territory to the visited set
+                return dictionary[current_territory]
             visited.add(current_territory)
+
+            neighbors = [neighbor.territory_id for neighbor in
+                         self.neighbors(current_territory)
+                         if neighbor.territory_id not in visited]
+            neighbors = [neighbor for neighbor in neighbors if
+                         self.owner(neighbor) != self.owner(source)]
+
+            for neighbor_territory in neighbors:
+                new_dict = copy.deepcopy(dictionary[current_territory])
+                new_dict.append(neighbor_territory)
+                armies = self.armies(neighbor_territory)
+                priority_path = priority + armies
+
+                if neighbor_territory not in pq:
+                    dictionary[neighbor_territory] = new_dict
+                    pq[neighbor_territory] = priority_path
+                elif priority_path < pq[neighbor_territory]:
+                    dictionary[neighbor_territory] = new_dict
+                    pq[neighbor_territory] = priority_path
 
         return None
 
@@ -354,7 +347,41 @@ class Board(object):
             bool: True if a valid attack path exists between source and
             target; else False
         """
-        return self.cheapest_attack_path(source, target) is None
+        if source == target:
+            return None
+        dictionary = {}
+        dictionary[source] = [source]
+        pq = heapdict.heapdict()
+        pq[source] = 0
+        visited = set()
+
+        while pq:
+            current_territory, priority = pq.popitem()
+
+            if current_territory == target:
+                return dictionary[current_territory]
+            visited.add(current_territory)
+
+            neighbors = [neighbor.territory_id for neighbor in
+                         self.neighbors(current_territory)
+                         if neighbor.territory_id not in visited]
+            neighbors = [neighbor for neighbor in neighbors if
+                         self.owner(neighbor) != self.owner(source)]
+
+            for neighbor_territory in neighbors:
+                new_dict = copy.deepcopy(dictionary[current_territory])
+                new_dict.append(neighbor_territory)
+                armies = self.armies(neighbor_territory)
+                priority_path = priority + armies
+
+                if neighbor_territory not in pq:
+                    dictionary[neighbor_territory] = new_dict
+                    pq[neighbor_territory] = priority_path
+                elif priority_path < pq[neighbor_territory]:
+                    dictionary[neighbor_territory] = new_dict
+                    pq[neighbor_territory] = priority_path
+
+        return None
 
     # ======================= #
     # == Continent Methods == #
